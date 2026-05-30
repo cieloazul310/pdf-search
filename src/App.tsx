@@ -11,6 +11,14 @@ const DEFAULT_SEARCH_TERMS = ["浦和"];
 
 type SearchStatus = "idle" | "loading" | "done" | "error";
 
+type ImportTarget = "pdfUrls" | "searchTerms";
+
+type ImportPreview = {
+  target: ImportTarget;
+  fileName: string;
+  validItems: string[];
+  invalidItems: string[];
+};
 export type SupportedListFileExtension = "txt" | "json" | "yml" | "yaml";
 
 function ensureNonEmptyList(items: string[], sourceName: string): string[] {
@@ -131,6 +139,8 @@ type ListInputProps = {
   onValueChange: (value: string) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
+  importTarget: ImportTarget;
+  onImportFile: (target: ImportTarget, file: File) => void;
   uploadLabel: string;
   onFileSelect: (file: File) => void | Promise<void>;
   importError?: string | null;
@@ -161,6 +171,84 @@ function loadSavedList(storageKey: string, fallback: string[]): string[] {
   return fallback;
 }
 
+function splitDelimitedText(text: string): string[] {
+  return text
+    .split(/[\n,]/)
+    .map((item) => item.trim().replace(/^(["'])(.*)\1$/, "$2").trim())
+    .filter(Boolean);
+}
+
+function parseImportFile(fileName: string, text: string): string[] {
+  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
+
+  if (extension === "json") {
+    const parsed = JSON.parse(text) as unknown;
+
+    if (!Array.isArray(parsed)) {
+      throw new Error("JSONファイルは文字列配列にしてください。");
+    }
+
+    return parsed
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter(Boolean);
+  }
+
+  if (extension === "csv") {
+    return splitDelimitedText(text);
+  }
+
+  if (extension === "txt" || extension === "text" || extension === "") {
+    return text
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  throw new Error("対応しているファイル形式は .txt / .csv / .json です。");
+}
+
+function buildImportPreview(
+  target: ImportTarget,
+  fileName: string,
+  rawItems: string[],
+): ImportPreview {
+  const validItems: string[] = [];
+  const invalidItems: string[] = [];
+
+  for (const rawItem of rawItems) {
+    const item = rawItem.trim();
+
+    if (!item) {
+      continue;
+    }
+
+    if (target === "pdfUrls") {
+      try {
+        validItems.push(new URL(item).toString());
+      } catch {
+        invalidItems.push(item);
+      }
+      continue;
+    }
+
+    validItems.push(item);
+  }
+
+  return { target, fileName, validItems, invalidItems };
+}
+
+function getUniqueNewItems(items: string[], existingItems: string[]): string[] {
+  const seenItems = new Set(existingItems);
+  const uniqueItems: string[] = [];
+
+  for (const item of items) {
+    if (!seenItems.has(item)) {
+      uniqueItems.push(item);
+      seenItems.add(item);
+    }
+  }
+
+  return uniqueItems;
 function normalizeImportedItems(items: string[]): string[] {
   return items.map((item) => item.trim()).filter(Boolean);
 }
@@ -201,6 +289,8 @@ function ListInput({
   onValueChange,
   onAdd,
   onRemove,
+  importTarget,
+  onImportFile,
   uploadLabel,
   onFileSelect,
   importError,
@@ -210,6 +300,14 @@ function ListInput({
     onAdd();
   }
 
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (file) {
+      onImportFile(importTarget, file);
+    }
+
+    event.target.value = "";
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
     const file = input.files?.[0];
@@ -239,6 +337,11 @@ function ListInput({
           追加
         </button>
       </form>
+
+      <label className="file-import">
+        <span>ファイルから追加（.txt / .csv / .json）</span>
+        <input type="file" accept=".txt,.text,.csv,.json" onChange={handleFileChange} />
+      </label>
 
       <label className="upload-field">
         <span>{uploadLabel}</span>
@@ -278,6 +381,8 @@ export default function App() {
   const [results, setResults] = useState<PdfSearchResult[]>([]);
   const [status, setStatus] = useState<SearchStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const [pdfUrlImportError, setPdfUrlImportError] = useState<string | null>(null);
   const [searchTermImportError, setSearchTermImportError] = useState<string | null>(null);
 
@@ -285,6 +390,15 @@ export default function App() {
     () => pdfUrls.length > 0 && searchTerms.length > 0 && status !== "loading",
     [pdfUrls.length, searchTerms.length, status],
   );
+  const importPreviewExistingItems =
+    importPreview?.target === "pdfUrls" ? pdfUrls : importPreview ? searchTerms : [];
+  const importPreviewAddableItems = importPreview
+    ? getUniqueNewItems(importPreview.validItems, importPreviewExistingItems)
+    : [];
+  const importPreviewDuplicateCount = importPreview
+    ? importPreview.validItems.length - importPreviewAddableItems.length
+    : 0;
+  const importTargetLabel = importPreview?.target === "pdfUrls" ? "PDF URL" : "検索語句";
 
   useEffect(() => {
     window.localStorage.setItem(PDF_URLS_STORAGE_KEY, JSON.stringify(pdfUrls));
@@ -318,6 +432,43 @@ export default function App() {
     setSearchTermInput("");
   }
 
+  async function handleImportFile(target: ImportTarget, file: File) {
+    setImportError(null);
+
+    try {
+      const text = await file.text();
+      const rawItems = parseImportFile(file.name, text);
+      setImportPreview(buildImportPreview(target, file.name, rawItems));
+    } catch (error) {
+      setImportPreview(null);
+      setImportError(
+        error instanceof Error ? error.message : "ファイルの読み込みまたは解析に失敗しました。",
+      );
+    }
+  }
+
+  function confirmImportPreview() {
+    if (!importPreview) {
+      return;
+    }
+
+    if (importPreview.target === "pdfUrls") {
+      setPdfUrls((currentItems) => [
+        ...currentItems,
+        ...getUniqueNewItems(importPreview.validItems, currentItems),
+      ]);
+    } else {
+      setSearchTerms((currentItems) => [
+        ...currentItems,
+        ...getUniqueNewItems(importPreview.validItems, currentItems),
+      ]);
+    }
+
+    setImportPreview(null);
+  }
+
+  function cancelImportPreview() {
+    setImportPreview(null);
   async function importListFile(
     file: File,
     onImport: (items: string[]) => void,
@@ -411,6 +562,8 @@ export default function App() {
           onRemove={(index) =>
             setPdfUrls((currentItems) => currentItems.filter((_, i) => i !== index))
           }
+          importTarget="pdfUrls"
+          onImportFile={handleImportFile}
           uploadLabel="PDF URLリストをアップロード"
           onFileSelect={handlePdfUrlFileSelect}
           importError={pdfUrlImportError}
@@ -427,11 +580,75 @@ export default function App() {
           onRemove={(index) =>
             setSearchTerms((currentItems) => currentItems.filter((_, i) => i !== index))
           }
+          importTarget="searchTerms"
+          onImportFile={handleImportFile}
           uploadLabel="検索語句リストをアップロード"
           onFileSelect={handleSearchTermFileSelect}
           importError={searchTermImportError}
         />
       </div>
+
+      {importError ? <section className="panel error">{importError}</section> : null}
+
+      {importPreview ? (
+        <section className="panel import-preview" aria-live="polite">
+          <div className="results-header">
+            <div>
+              <p className="eyebrow import-eyebrow">Import preview</p>
+              <h2>{importTargetLabel}の追加プレビュー</h2>
+            </div>
+            <span>{importPreview.fileName}</span>
+          </div>
+
+          <div className="preview-summary">
+            <span>追加予定: {importPreviewAddableItems.length}件</span>
+            <span>重複除外予定: {importPreviewDuplicateCount}件</span>
+            {importPreview.target === "pdfUrls" ? (
+              <span>無効URL: {importPreview.invalidItems.length}件</span>
+            ) : null}
+          </div>
+
+          {importPreviewAddableItems.length > 0 ? (
+            <div className="preview-block">
+              <h3>追加対象</h3>
+              <ul className="preview-list">
+                {importPreviewAddableItems.slice(0, 10).map((item, index) => (
+                  <li key={`${item}-${index}`}>{item}</li>
+                ))}
+              </ul>
+              {importPreviewAddableItems.length > 10 ? (
+                <p className="empty-message">ほか {importPreviewAddableItems.length - 10}件</p>
+              ) : null}
+            </div>
+          ) : (
+            <p className="empty-message">追加できる新規項目はありません。</p>
+          )}
+
+          {importPreview.target === "pdfUrls" && importPreview.invalidItems.length > 0 ? (
+            <div className="preview-block invalid-preview">
+              <h3>無効URL一覧</h3>
+              <ul className="preview-list">
+                {importPreview.invalidItems.map((item, index) => (
+                  <li key={`${item}-${index}`}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <div className="preview-actions">
+            <button
+              type="button"
+              onClick={confirmImportPreview}
+              disabled={importPreviewAddableItems.length === 0}
+            >
+              追加
+            </button>
+            <button type="button" className="secondary-button" onClick={cancelImportPreview}>
+              キャンセル
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section className="toolbar" aria-label="検索アクション">
         <button type="button" disabled={!canSearch} onClick={handleSearch}>
