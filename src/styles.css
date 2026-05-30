@@ -139,6 +139,95 @@ input:focus {
   flex: 0 0 auto;
 }
 
+.file-import {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  color: #475569;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.file-import input {
+  border-style: dashed;
+  border-radius: 16px;
+  padding: 12px;
+  color: #475569;
+  background: #f8fafc;
+}
+
+.import-preview {
+  margin-top: 22px;
+}
+
+.import-preview h2,
+.preview-block h3 {
+  margin: 0;
+}
+
+.import-eyebrow {
+  margin-bottom: 6px;
+  color: #4f46e5;
+}
+
+.preview-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.preview-summary span {
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  color: #1e3a8a;
+  background: #dbeafe;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.preview-block {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.preview-list {
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.preview-list li {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+  background: #f8fafc;
+}
+
+.invalid-preview .preview-list li {
+  border-color: #fecaca;
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.secondary-button {
+  color: #334155;
+  background: #e2e8f0;
+  box-shadow: none;
+}
+
 .empty-message {
   margin: 16px 0 0;
   color: #64748b;
