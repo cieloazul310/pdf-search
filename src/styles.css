@@ -23,6 +23,10 @@ input {
   font: inherit;
 }
 
+input[type="file"] {
+  display: none;
+}
+
 button {
   border: 0;
   border-radius: 999px;
@@ -139,178 +143,6 @@ input:focus {
   flex: 0 0 auto;
 }
 
-.file-import {
-.upload-field {
-  display: grid;
-  gap: 8px;
-  margin-top: 14px;
-  color: #475569;
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
-.file-import input {
-  border-style: dashed;
-  border-radius: 16px;
-  padding: 12px;
-  color: #475569;
-  background: #f8fafc;
-}
-
-.import-preview {
-  margin-top: 22px;
-}
-
-.import-preview h2,
-.preview-block h3 {
-  margin: 0;
-}
-
-.import-eyebrow {
-  margin-bottom: 6px;
-  color: #4f46e5;
-}
-
-.preview-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 18px;
-}
-
-.preview-summary span {
-  border-radius: 999px;
-  padding: 0.35rem 0.75rem;
-  color: #1e3a8a;
-  background: #dbeafe;
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
-.preview-block {
-  display: grid;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.preview-list {
-  display: grid;
-  gap: 8px;
-  max-height: 240px;
-  margin: 0;
-  padding: 0;
-  overflow: auto;
-.upload-field input {
-  border-style: dashed;
-  border-radius: 16px;
-  background: #f8fafc;
-}
-
-.import-error {
-  margin: 12px 0 0;
-  color: #991b1b;
-  font-weight: 700;
-.upload-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border: 1px solid #dbe3ef;
-  border-radius: 22px;
-  padding: 16px;
-  background: rgb(255 255 255 / 90%);
-  box-shadow: 0 12px 28px rgb(15 23 42 / 8%);
-}
-
-.file-input {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.file-input::file-selector-button {
-  margin-right: 12px;
-  border: 0;
-  border-radius: 999px;
-  padding: 0.65rem 1rem;
-  color: #ffffff;
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  cursor: pointer;
-}
-
-.secondary-button {
-  color: #334155;
-  background: #f8fafc;
-  box-shadow: none;
-  border: 1px solid #cbd5e1;
-}
-
-.import-preview {
-  display: grid;
-  gap: 16px;
-  border: 1px solid #dbe3ef;
-  border-radius: 22px;
-  padding: 20px;
-  background: rgb(255 255 255 / 90%);
-  box-shadow: 0 12px 28px rgb(15 23 42 / 8%);
-}
-
-.preview-list,
-.invalid-list {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.preview-list li {
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 10px 12px;
-  overflow-wrap: anywhere;
-  background: #f8fafc;
-}
-
-.invalid-preview .preview-list li {
-  border-color: #fecaca;
-  color: #991b1b;
-  background: #fef2f2;
-  border-radius: 16px;
-  padding: 12px;
-  background: #f8fafc;
-  overflow-wrap: anywhere;
-}
-
-.preview-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.secondary-button {
-  color: #334155;
-  background: #e2e8f0;
-  box-shadow: none;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.invalid-list {
-  border: 1px solid #fecaca;
-  border-radius: 16px;
-  padding: 12px;
-  color: #991b1b;
-  background: #fef2f2;
-}
-
-.import-error {
-  border: 1px solid #fecaca;
-  border-radius: 16px;
-  padding: 12px 14px;
-  color: #991b1b;
-  background: #fef2f2;
-}
-
 .empty-message {
   margin: 16px 0 0;
   color: #64748b;
@@ -341,7 +173,23 @@ input:focus {
   font-weight: 700;
 }
 
-.remove-button {
+.file-upload-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  margin-top: 12px;
+  border: 1px dashed #93c5fd;
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  color: #1d4ed8;
+  background: #eff6ff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.remove-button,
+.secondary-button {
   flex: 0 0 auto;
   padding: 0.5rem 0.85rem;
   color: #991b1b;
@@ -349,74 +197,74 @@ input:focus {
   box-shadow: none;
 }
 
-.validation-message {
-  margin: 12px 0 0;
-  color: #b91c1c;
-  font-weight: 700;
-}
-
-.import-box {
-  display: grid;
-  gap: 10px;
-  margin-top: 18px;
-  border: 1px dashed #93c5fd;
-  border-radius: 18px;
-  padding: 16px;
-  background: #eff6ff;
-}
-
-.file-import-label {
-  color: #1e3a8a;
-  font-weight: 800;
-}
-
-.import-hint {
-  margin: 0;
-  color: #475569;
-  font-size: 0.9rem;
+.secondary-button {
+  color: #334155;
+  background: #e2e8f0;
 }
 
 .import-preview {
   display: grid;
-  gap: 12px;
-  border-radius: 16px;
-  padding: 14px;
-  background: #ffffff;
+  gap: 18px;
+  margin-top: 22px;
 }
 
-.import-preview-header,
-.import-actions {
+.import-preview-header {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 18px;
+}
+
+.import-preview-header h2,
+.import-preview-header p {
+  margin: 0;
+}
+
+.import-preview-header h2 {
+  margin-bottom: 8px;
+}
+
+.dark-eyebrow {
+  color: #2563eb;
+}
+
+.preview-actions {
+  display: flex;
+  flex: 0 0 auto;
   gap: 10px;
 }
 
-.import-preview-header span {
-  color: #475569;
-  font-weight: 700;
+.preview-list {
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.secondary-button {
-  color: #334155;
-  background: #e2e8f0;
-  box-shadow: none;
+.preview-list li {
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+  background: #eff6ff;
 }
 
-.invalid-url-list summary {
-  cursor: pointer;
-  color: #b91c1c;
-  font-weight: 700;
+.invalid-items {
+  border: 1px solid #fecaca;
+  border-radius: 16px;
+  padding: 14px;
+  color: #991b1b;
+  background: #fef2f2;
 }
 
-.invalid-url-list ul {
+.invalid-items ul {
   display: grid;
   gap: 6px;
-  margin: 8px 0 0;
-  padding-left: 1.2rem;
-  color: #7f1d1d;
-  overflow-wrap: anywhere;
+  margin: 10px 0 0;
+  padding-left: 20px;
 }
 
 .toolbar {
@@ -513,9 +361,7 @@ mark {
   }
 
   .hero-card,
-  .panel,
-  .upload-row,
-  .import-preview {
+  .panel {
     border-radius: 18px;
     padding: 20px;
   }
@@ -525,7 +371,7 @@ mark {
   }
 
   .add-form,
-  .upload-row,
+  .import-preview-header,
   .preview-actions,
   .toolbar,
   .summary {
@@ -533,7 +379,7 @@ mark {
     flex-direction: column;
   }
 
-  .preview-actions button {
+  .file-upload-button {
     width: 100%;
   }
 }
