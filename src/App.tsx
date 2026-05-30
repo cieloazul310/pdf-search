@@ -11,6 +11,117 @@ const DEFAULT_SEARCH_TERMS = ["浦和"];
 
 type SearchStatus = "idle" | "loading" | "done" | "error";
 
+export type SupportedListFileExtension = "txt" | "json" | "yml" | "yaml";
+
+function ensureNonEmptyList(items: string[], sourceName: string): string[] {
+  if (items.length === 0) {
+    throw new Error(`${sourceName}に有効な項目がありません。1件以上の文字列を指定してください。`);
+  }
+
+  return items;
+}
+
+export function getFileExtension(file: File): SupportedListFileExtension | null {
+  const match = /\.([^.\/]+)$/.exec(file.name.toLowerCase());
+  const extension = match?.[1];
+
+  if (
+    extension === "txt" ||
+    extension === "json" ||
+    extension === "yml" ||
+    extension === "yaml"
+  ) {
+    return extension;
+  }
+
+  return null;
+}
+
+export function parseTextList(content: string): string[] {
+  return ensureNonEmptyList(
+    content
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean),
+    "テキストファイル",
+  );
+}
+
+export function parseJsonList(content: string): string[] {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error("JSONファイルの形式が不正です。文字列配列として記述してください。");
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error("JSONファイルはトップレベルに文字列配列を指定してください。");
+  }
+
+  const invalidIndex = parsed.findIndex((item) => typeof item !== "string");
+
+  if (invalidIndex !== -1) {
+    throw new Error(`JSONファイルの${invalidIndex + 1}件目が文字列ではありません。`);
+  }
+
+  return ensureNonEmptyList(
+    parsed.map((item) => item.trim()).filter(Boolean),
+    "JSONファイル",
+  );
+}
+
+export function parseYamlList(content: string): string[] {
+  const values: string[] = [];
+  const nonEmptyLines = content
+    .split(/\r?\n/)
+    .map((line, index) => ({ line: line.trim(), lineNumber: index + 1 }))
+    .filter(({ line }) => line !== "");
+
+  for (const { line, lineNumber } of nonEmptyLines) {
+    if (line !== "-" && !line.startsWith("- ")) {
+      throw new Error(
+        `YAMLファイルの${lineNumber}行目が不正です。各行は「- 値」の形式で記述してください。`,
+      );
+    }
+
+    const value = line.slice(1).trim();
+
+    if (value === "") {
+      throw new Error(`YAMLファイルの${lineNumber}行目に値がありません。`);
+    }
+
+    values.push(value);
+  }
+
+  return ensureNonEmptyList(values, "YAMLファイル");
+}
+
+export async function parseUploadedList(file: File): Promise<string[]> {
+  const extension = getFileExtension(file);
+
+  if (!extension) {
+    throw new Error("対応していないファイル形式です。.txt、.json、.yml、.yamlを指定してください。");
+  }
+
+  const content = await file.text();
+
+  switch (extension) {
+    case "txt":
+      return parseTextList(content);
+    case "json":
+      return parseJsonList(content);
+    case "yml":
+    case "yaml":
+      return parseYamlList(content);
+    default: {
+      const exhaustiveCheck: never = extension;
+      return exhaustiveCheck;
+    }
+  }
+}
+
 type ListInputProps = {
   title: string;
   placeholder: string;
