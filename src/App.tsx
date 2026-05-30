@@ -1,5 +1,5 @@
+import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
 import type { ApiErrorResponse, PdfSearchResponse, PdfSearchResult } from "../server/types";
 
 const PDF_URLS_STORAGE_KEY = "pdf-search:pdf-urls";
@@ -11,6 +11,11 @@ const DEFAULT_SEARCH_TERMS = ["浦和"];
 
 type SearchStatus = "idle" | "loading" | "done" | "error";
 
+type PdfUrlImportPreview = {
+  validItems: string[];
+  invalidItems: string[];
+};
+
 type ListInputProps = {
   title: string;
   placeholder: string;
@@ -20,7 +25,37 @@ type ListInputProps = {
   onValueChange: (value: string) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
+  children?: ReactNode;
 };
+
+export function isValidPdfUrl(value: string): boolean {
+  try {
+    const url = new URL(value.trim());
+    const hasAllowedProtocol = url.protocol === "http:" || url.protocol === "https:";
+    // URL.pathname excludes query strings, so .pdf URLs with 官報-style query parameters stay valid.
+    const hasPdfPath = url.pathname.toLowerCase().endsWith(".pdf");
+
+    return hasAllowedProtocol && hasPdfPath;
+  } catch {
+    return false;
+  }
+}
+
+export function normalizeList(items: string[]): string[] {
+  return items.map((item) => item.trim()).filter((item) => item !== "");
+}
+
+export function mergeUniqueItems(currentItems: string[], importedItems: string[]): string[] {
+  const mergedItems: string[] = [];
+
+  for (const item of [...normalizeList(currentItems), ...normalizeList(importedItems)]) {
+    if (!mergedItems.includes(item)) {
+      mergedItems.push(item);
+    }
+  }
+
+  return mergedItems;
+}
 
 function loadSavedList(storageKey: string, fallback: string[]): string[] {
   const rawValue = window.localStorage.getItem(storageKey);
@@ -33,15 +68,10 @@ function loadSavedList(storageKey: string, fallback: string[]): string[] {
     const parsed = JSON.parse(rawValue) as unknown;
 
     if (Array.isArray(parsed)) {
-      return parsed.filter(
-        (item): item is string => typeof item === "string" && item.trim() !== "",
-      );
+      return normalizeList(parsed.filter((item): item is string => typeof item === "string"));
     }
   } catch {
-    return rawValue
-      .split("\n")
-      .map((item) => item.trim())
-      .filter(Boolean);
+    return normalizeList(rawValue.split("\n"));
   }
 
   return fallback;
@@ -56,6 +86,7 @@ function ListInput({
   onValueChange,
   onAdd,
   onRemove,
+  children,
 }: ListInputProps) {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -78,6 +109,8 @@ function ListInput({
       </form>
 
       {items.length === 0 ? <p className="empty-message">{emptyMessage}</p> : null}
+
+      {children}
 
       <ul className="item-list">
         {items.map((item, index) => (
@@ -105,6 +138,8 @@ export default function App() {
   const [results, setResults] = useState<PdfSearchResult[]>([]);
   const [status, setStatus] = useState<SearchStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pdfUrlErrorMessage, setPdfUrlErrorMessage] = useState<string | null>(null);
+  const [pdfUrlImportPreview, setPdfUrlImportPreview] = useState<PdfUrlImportPreview | null>(null);
 
   const canSearch = useMemo(
     () => pdfUrls.length > 0 && searchTerms.length > 0 && status !== "loading",
@@ -122,13 +157,51 @@ export default function App() {
   function addPdfUrl() {
     const nextValue = pdfUrlInput.trim();
 
-    if (!nextValue || pdfUrls.includes(nextValue)) {
+    if (!nextValue) {
+      setPdfUrlErrorMessage(null);
       setPdfUrlInput("");
       return;
     }
 
-    setPdfUrls((currentItems) => [...currentItems, nextValue]);
+    if (!isValidPdfUrl(nextValue)) {
+      setPdfUrlErrorMessage("http(s) の .pdf URLのみ追加できます。");
+      return;
+    }
+
+    setPdfUrlErrorMessage(null);
+
+    if (pdfUrls.includes(nextValue)) {
+      setPdfUrlInput("");
+      return;
+    }
+
+    setPdfUrls((currentItems) => mergeUniqueItems(currentItems, [nextValue]));
     setPdfUrlInput("");
+  }
+
+  async function importPdfUrlFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const importedItems = normalizeList((await file.text()).split(/\r?\n/));
+    const validItems = importedItems.filter(isValidPdfUrl);
+    const invalidItems = importedItems.filter((item) => !isValidPdfUrl(item));
+
+    setPdfUrlImportPreview({ validItems, invalidItems });
+    event.target.value = "";
+  }
+
+  function applyPdfUrlImport() {
+    if (!pdfUrlImportPreview) {
+      return;
+    }
+
+    setPdfUrls((currentItems) => mergeUniqueItems(currentItems, pdfUrlImportPreview.validItems));
+    setPdfUrlImportPreview(null);
+    setPdfUrlErrorMessage(null);
   }
 
   function addSearchTerm() {
@@ -180,23 +253,83 @@ export default function App() {
         <p className="eyebrow">PDF Search</p>
         <h1>PDF内の文字列をサーバー経由で検索</h1>
         <p className="description">
-          ブラウザではPDF URLと検索語句だけを管理し、検索時はローカルサーバーがPDFを一時保存して本文検索します。
+          ブラウザではPDF
+          URLと検索語句だけを管理し、検索時はローカルサーバーがPDFを一時保存して本文検索します。
         </p>
       </section>
 
-      <div className="input-grid" aria-label="検索条件">
+      <section className="input-grid" aria-label="検索条件">
         <ListInput
           title="ターゲットPDF URL"
           placeholder="https://example.com/sample.pdf"
           emptyMessage="検索対象のPDF URLを追加してください。"
           items={pdfUrls}
           value={pdfUrlInput}
-          onValueChange={setPdfUrlInput}
+          onValueChange={(value) => {
+            setPdfUrlInput(value);
+            setPdfUrlErrorMessage(null);
+          }}
           onAdd={addPdfUrl}
           onRemove={(index) =>
             setPdfUrls((currentItems) => currentItems.filter((_, i) => i !== index))
           }
-        />
+        >
+          {pdfUrlErrorMessage ? <p className="validation-message">{pdfUrlErrorMessage}</p> : null}
+
+          <div className="import-box">
+            <label className="file-import-label" htmlFor="pdf-url-file">
+              PDF URLファイル読み込み
+            </label>
+            <input
+              id="pdf-url-file"
+              type="file"
+              accept=".txt,text/plain"
+              onChange={importPdfUrlFile}
+            />
+            <p className="import-hint">
+              1行につき1 URLのテキストファイルを選ぶと、http(s) の .pdf URLだけを追加候補にします。
+            </p>
+
+            {pdfUrlImportPreview ? (
+              <div className="import-preview" aria-live="polite">
+                <div className="import-preview-header">
+                  <strong>読み込みプレビュー</strong>
+                  <span>
+                    有効 {pdfUrlImportPreview.validItems.length}件 / 追加不可{" "}
+                    {pdfUrlImportPreview.invalidItems.length}件
+                  </span>
+                </div>
+                <div className="import-actions">
+                  <button
+                    type="button"
+                    onClick={applyPdfUrlImport}
+                    disabled={pdfUrlImportPreview.validItems.length === 0}
+                  >
+                    有効なURLを追加
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => setPdfUrlImportPreview(null)}
+                  >
+                    クリア
+                  </button>
+                </div>
+
+                {pdfUrlImportPreview.invalidItems.length > 0 ? (
+                  <details className="invalid-url-list">
+                    <summary>追加不可のURLを確認</summary>
+                    <ul>
+                      {pdfUrlImportPreview.invalidItems.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </ListInput>
 
         <ListInput
           title="検索する文字列"
@@ -210,7 +343,7 @@ export default function App() {
             setSearchTerms((currentItems) => currentItems.filter((_, i) => i !== index))
           }
         />
-      </div>
+      </section>
 
       <section className="toolbar" aria-label="検索アクション">
         <button type="button" disabled={!canSearch} onClick={handleSearch}>
@@ -238,7 +371,9 @@ export default function App() {
         </div>
 
         {status === "idle" ? <p>検索条件を入力して「PDFを検索」を押してください。</p> : null}
-        {status === "done" && results.length === 0 ? <p>一致する文字列はありませんでした。</p> : null}
+        {status === "done" && results.length === 0 ? (
+          <p>一致する文字列はありませんでした。</p>
+        ) : null}
 
         <ol>
           {results.map((result) => (

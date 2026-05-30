@@ -177,6 +177,76 @@ input:focus {
   box-shadow: none;
 }
 
+.validation-message {
+  margin: 12px 0 0;
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.import-box {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  border: 1px dashed #93c5fd;
+  border-radius: 18px;
+  padding: 16px;
+  background: #eff6ff;
+}
+
+.file-import-label {
+  color: #1e3a8a;
+  font-weight: 800;
+}
+
+.import-hint {
+  margin: 0;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.import-preview {
+  display: grid;
+  gap: 12px;
+  border-radius: 16px;
+  padding: 14px;
+  background: #ffffff;
+}
+
+.import-preview-header,
+.import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.import-preview-header span {
+  color: #475569;
+  font-weight: 700;
+}
+
+.secondary-button {
+  color: #334155;
+  background: #e2e8f0;
+  box-shadow: none;
+}
+
+.invalid-url-list summary {
+  cursor: pointer;
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.invalid-url-list ul {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding-left: 1.2rem;
+  color: #7f1d1d;
+  overflow-wrap: anywhere;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
