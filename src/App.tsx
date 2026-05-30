@@ -19,6 +19,116 @@ type ImportPreview = {
   validItems: string[];
   invalidItems: string[];
 };
+export type SupportedListFileExtension = "txt" | "json" | "yml" | "yaml";
+
+function ensureNonEmptyList(items: string[], sourceName: string): string[] {
+  if (items.length === 0) {
+    throw new Error(`${sourceName}に有効な項目がありません。1件以上の文字列を指定してください。`);
+  }
+
+  return items;
+}
+
+export function getFileExtension(file: File): SupportedListFileExtension | null {
+  const match = /\.([^.\/]+)$/.exec(file.name.toLowerCase());
+  const extension = match?.[1];
+
+  if (
+    extension === "txt" ||
+    extension === "json" ||
+    extension === "yml" ||
+    extension === "yaml"
+  ) {
+    return extension;
+  }
+
+  return null;
+}
+
+export function parseTextList(content: string): string[] {
+  return ensureNonEmptyList(
+    content
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean),
+    "テキストファイル",
+  );
+}
+
+export function parseJsonList(content: string): string[] {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error("JSONファイルの形式が不正です。文字列配列として記述してください。");
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error("JSONファイルはトップレベルに文字列配列を指定してください。");
+  }
+
+  const invalidIndex = parsed.findIndex((item) => typeof item !== "string");
+
+  if (invalidIndex !== -1) {
+    throw new Error(`JSONファイルの${invalidIndex + 1}件目が文字列ではありません。`);
+  }
+
+  return ensureNonEmptyList(
+    parsed.map((item) => item.trim()).filter(Boolean),
+    "JSONファイル",
+  );
+}
+
+export function parseYamlList(content: string): string[] {
+  const values: string[] = [];
+  const nonEmptyLines = content
+    .split(/\r?\n/)
+    .map((line, index) => ({ line: line.trim(), lineNumber: index + 1 }))
+    .filter(({ line }) => line !== "");
+
+  for (const { line, lineNumber } of nonEmptyLines) {
+    if (line !== "-" && !line.startsWith("- ")) {
+      throw new Error(
+        `YAMLファイルの${lineNumber}行目が不正です。各行は「- 値」の形式で記述してください。`,
+      );
+    }
+
+    const value = line.slice(1).trim();
+
+    if (value === "") {
+      throw new Error(`YAMLファイルの${lineNumber}行目に値がありません。`);
+    }
+
+    values.push(value);
+  }
+
+  return ensureNonEmptyList(values, "YAMLファイル");
+}
+
+export async function parseUploadedList(file: File): Promise<string[]> {
+  const extension = getFileExtension(file);
+
+  if (!extension) {
+    throw new Error("対応していないファイル形式です。.txt、.json、.yml、.yamlを指定してください。");
+  }
+
+  const content = await file.text();
+
+  switch (extension) {
+    case "txt":
+      return parseTextList(content);
+    case "json":
+      return parseJsonList(content);
+    case "yml":
+    case "yaml":
+      return parseYamlList(content);
+    default: {
+      const exhaustiveCheck: never = extension;
+      return exhaustiveCheck;
+    }
+  }
+}
 
 type ListInputProps = {
   title: string;
@@ -31,6 +141,9 @@ type ListInputProps = {
   onRemove: (index: number) => void;
   importTarget: ImportTarget;
   onImportFile: (target: ImportTarget, file: File) => void;
+  uploadLabel: string;
+  onFileSelect: (file: File) => void | Promise<void>;
+  importError?: string | null;
 };
 
 function loadSavedList(storageKey: string, fallback: string[]): string[] {
@@ -136,6 +249,35 @@ function getUniqueNewItems(items: string[], existingItems: string[]): string[] {
   }
 
   return uniqueItems;
+function normalizeImportedItems(items: string[]): string[] {
+  return items.map((item) => item.trim()).filter(Boolean);
+}
+
+function parsePlainTextList(text: string): string[] {
+  return normalizeImportedItems(
+    text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== "" && !line.startsWith("#"))
+      .map((line) => line.replace(/^-\s*/, ""))
+      .map((line) => line.replace(/^['"]|['"]$/g, "")),
+  );
+}
+
+function parseImportedListContent(text: string): string[] {
+  try {
+    const parsed = JSON.parse(text) as unknown;
+
+    if (Array.isArray(parsed)) {
+      return normalizeImportedItems(
+        parsed.filter((item): item is string => typeof item === "string"),
+      );
+    }
+  } catch {
+    return parsePlainTextList(text);
+  }
+
+  return parsePlainTextList(text);
 }
 
 function ListInput({
@@ -149,6 +291,9 @@ function ListInput({
   onRemove,
   importTarget,
   onImportFile,
+  uploadLabel,
+  onFileSelect,
+  importError,
 }: ListInputProps) {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -163,6 +308,19 @@ function ListInput({
     }
 
     event.target.value = "";
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      await onFileSelect(file);
+    } finally {
+      input.value = "";
+    }
   }
 
   return (
@@ -185,6 +343,16 @@ function ListInput({
         <input type="file" accept=".txt,.text,.csv,.json" onChange={handleFileChange} />
       </label>
 
+      <label className="upload-field">
+        <span>{uploadLabel}</span>
+        <input
+          type="file"
+          accept=".txt,.json,.yml,.yaml,text/plain,application/json,application/x-yaml,text/yaml"
+          onChange={handleFileChange}
+        />
+      </label>
+
+      {importError ? <p className="import-error">{importError}</p> : null}
       {items.length === 0 ? <p className="empty-message">{emptyMessage}</p> : null}
 
       <ul className="item-list">
@@ -215,6 +383,8 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [pdfUrlImportError, setPdfUrlImportError] = useState<string | null>(null);
+  const [searchTermImportError, setSearchTermImportError] = useState<string | null>(null);
 
   const canSearch = useMemo(
     () => pdfUrls.length > 0 && searchTerms.length > 0 && status !== "loading",
@@ -299,6 +469,44 @@ export default function App() {
 
   function cancelImportPreview() {
     setImportPreview(null);
+  async function importListFile(
+    file: File,
+    onImport: (items: string[]) => void,
+    onError: (message: string | null) => void,
+  ) {
+    onError(null);
+
+    try {
+      const importedItems = parseImportedListContent(await file.text());
+
+      if (importedItems.length === 0) {
+        throw new Error("ファイルから項目を読み取れませんでした。");
+      }
+
+      onImport(importedItems);
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "ファイルの読み込みに失敗しました。");
+    }
+  }
+
+  function handlePdfUrlFileSelect(file: File) {
+    return importListFile(
+      file,
+      (importedItems) => {
+        setPdfUrls((currentItems) => Array.from(new Set([...currentItems, ...importedItems])));
+      },
+      setPdfUrlImportError,
+    );
+  }
+
+  function handleSearchTermFileSelect(file: File) {
+    return importListFile(
+      file,
+      (importedItems) => {
+        setSearchTerms((currentItems) => Array.from(new Set([...currentItems, ...importedItems])));
+      },
+      setSearchTermImportError,
+    );
   }
 
   async function handleSearch() {
@@ -356,6 +564,9 @@ export default function App() {
           }
           importTarget="pdfUrls"
           onImportFile={handleImportFile}
+          uploadLabel="PDF URLリストをアップロード"
+          onFileSelect={handlePdfUrlFileSelect}
+          importError={pdfUrlImportError}
         />
 
         <ListInput
@@ -371,6 +582,9 @@ export default function App() {
           }
           importTarget="searchTerms"
           onImportFile={handleImportFile}
+          uploadLabel="検索語句リストをアップロード"
+          onFileSelect={handleSearchTermFileSelect}
+          importError={searchTermImportError}
         />
       </div>
 

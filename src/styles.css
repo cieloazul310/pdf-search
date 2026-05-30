@@ -140,6 +140,7 @@ input:focus {
 }
 
 .file-import {
+.upload-field {
   display: grid;
   gap: 8px;
   margin-top: 14px;
@@ -199,6 +200,65 @@ input:focus {
   margin: 0;
   padding: 0;
   overflow: auto;
+.upload-field input {
+  border-style: dashed;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.import-error {
+  margin: 12px 0 0;
+  color: #991b1b;
+  font-weight: 700;
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 22px;
+  padding: 16px;
+  background: rgb(255 255 255 / 90%);
+  box-shadow: 0 12px 28px rgb(15 23 42 / 8%);
+}
+
+.file-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.file-input::file-selector-button {
+  margin-right: 12px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  cursor: pointer;
+}
+
+.secondary-button {
+  color: #334155;
+  background: #f8fafc;
+  box-shadow: none;
+  border: 1px solid #cbd5e1;
+}
+
+.import-preview {
+  display: grid;
+  gap: 16px;
+  border: 1px solid #dbe3ef;
+  border-radius: 22px;
+  padding: 20px;
+  background: rgb(255 255 255 / 90%);
+  box-shadow: 0 12px 28px rgb(15 23 42 / 8%);
+}
+
+.preview-list,
+.invalid-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
   list-style: none;
 }
 
@@ -214,6 +274,10 @@ input:focus {
   border-color: #fecaca;
   color: #991b1b;
   background: #fef2f2;
+  border-radius: 16px;
+  padding: 12px;
+  background: #f8fafc;
+  overflow-wrap: anywhere;
 }
 
 .preview-actions {
@@ -226,6 +290,25 @@ input:focus {
   color: #334155;
   background: #e2e8f0;
   box-shadow: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.invalid-list {
+  border: 1px solid #fecaca;
+  border-radius: 16px;
+  padding: 12px;
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+.import-error {
+  border: 1px solid #fecaca;
+  border-radius: 16px;
+  padding: 12px 14px;
+  color: #991b1b;
+  background: #fef2f2;
 }
 
 .empty-message {
@@ -360,7 +443,9 @@ mark {
   }
 
   .hero-card,
-  .panel {
+  .panel,
+  .upload-row,
+  .import-preview {
     border-radius: 18px;
     padding: 20px;
   }
@@ -370,9 +455,15 @@ mark {
   }
 
   .add-form,
+  .upload-row,
+  .preview-actions,
   .toolbar,
   .summary {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .preview-actions button {
+    width: 100%;
   }
 }
