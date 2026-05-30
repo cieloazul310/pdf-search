@@ -4,9 +4,13 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently \"npm:server:dev\" \"npm:client:dev\"",
+    "client:dev": "vite",
+    "server:dev": "tsx watch server/index.ts",
+    "server": "tsx server/index.ts",
     "build": "tsc -b && vite build",
-    "preview": "vite preview",
+    "preview": "npm run build && tsx server/index.ts",
+    "test": "vitest run",
     "lint": "biome check .",
     "format": "biome format --write ."
   },
@@ -17,10 +21,14 @@
   },
   "devDependencies": {
     "@biomejs/biome": "latest",
+    "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "latest",
+    "concurrently": "latest",
+    "tsx": "latest",
     "typescript": "latest",
-    "vite": "latest"
+    "vite": "latest",
+    "vitest": "latest"
   }
 }

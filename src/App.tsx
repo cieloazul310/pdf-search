@@ -1,142 +1,147 @@
 import { useEffect, useMemo, useState } from "react";
-import * as pdfjs from "pdfjs-dist";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
+import type { FormEvent } from "react";
+import type { ApiErrorResponse, PdfSearchResponse, PdfSearchResult } from "../server/types";
 
-pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-
+const PDF_URLS_STORAGE_KEY = "pdf-search:pdf-urls";
 const SEARCH_TERMS_STORAGE_KEY = "pdf-search:terms";
 const DEFAULT_PDF_URLS = [
-  "https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf",
+  "https://www.kanpo.go.jp/20260519/20260519g00110/pdf/20260519g00110full00010096.pdf",
 ];
+const DEFAULT_SEARCH_TERMS = ["浦和"];
 
 type SearchStatus = "idle" | "loading" | "done" | "error";
 
-type PdfSearchResult = {
-  id: string;
-  pdfUrl: string;
-  pageNumber: number;
-  term: string;
-  snippet: string;
+type ListInputProps = {
+  title: string;
+  placeholder: string;
+  emptyMessage: string;
+  items: string[];
+  value: string;
+  onValueChange: (value: string) => void;
+  onAdd: () => void;
+  onRemove: (index: number) => void;
 };
 
-type PdfSearchProgress = {
-  currentUrl: string;
-  loadedPages: number;
-  totalPages: number;
-};
-
-function parseList(value: string): string[] {
-  return value
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function createTextAreaValue(items: string[]): string {
-  return items.join("\n");
-}
-
-function loadSavedSearchTerms(): string[] {
-  const rawValue = window.localStorage.getItem(SEARCH_TERMS_STORAGE_KEY);
+function loadSavedList(storageKey: string, fallback: string[]): string[] {
+  const rawValue = window.localStorage.getItem(storageKey);
 
   if (!rawValue) {
-    return ["trace", "JavaScript"];
+    return fallback;
   }
 
   try {
     const parsed = JSON.parse(rawValue) as unknown;
 
     if (Array.isArray(parsed)) {
-      return parsed.filter((item): item is string => typeof item === "string");
+      return parsed.filter(
+        (item): item is string => typeof item === "string" && item.trim() !== "",
+      );
     }
   } catch {
-    return parseList(rawValue);
+    return rawValue
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
   }
 
-  return [];
+  return fallback;
 }
 
-function buildSnippet(text: string, matchIndex: number, termLength: number): string {
-  const maxContextLength = 60;
-  const start = Math.max(0, matchIndex - maxContextLength);
-  const end = Math.min(text.length, matchIndex + termLength + maxContextLength);
-  const prefix = start > 0 ? "…" : "";
-  const suffix = end < text.length ? "…" : "";
-
-  return `${prefix}${text.slice(start, end).replace(/\s+/g, " ").trim()}${suffix}`;
-}
-
-async function extractPageText(page: pdfjs.PDFPageProxy): Promise<string> {
-  const textContent = await page.getTextContent();
-
-  return textContent.items
-    .map((item) => ("str" in item ? item.str : ""))
-    .join(" ");
-}
-
-async function searchPdf(
-  pdfUrl: string,
-  searchTerms: string[],
-  onProgress: (progress: PdfSearchProgress) => void,
-): Promise<PdfSearchResult[]> {
-  const loadingTask = pdfjs.getDocument(pdfUrl);
-  const pdf = await loadingTask.promise;
-  const results: PdfSearchResult[] = [];
-  const normalizedTerms = searchTerms.map((term) => ({
-    label: term,
-    normalized: term.toLocaleLowerCase(),
-  }));
-
-  onProgress({ currentUrl: pdfUrl, loadedPages: 0, totalPages: pdf.numPages });
-
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-    const page = await pdf.getPage(pageNumber);
-    const pageText = await extractPageText(page);
-    const normalizedPageText = pageText.toLocaleLowerCase();
-
-    for (const term of normalizedTerms) {
-      let matchIndex = normalizedPageText.indexOf(term.normalized);
-
-      while (matchIndex >= 0) {
-        results.push({
-          id: `${pdfUrl}-${pageNumber}-${term.label}-${matchIndex}`,
-          pdfUrl,
-          pageNumber,
-          term: term.label,
-          snippet: buildSnippet(pageText, matchIndex, term.label.length),
-        });
-
-        matchIndex = normalizedPageText.indexOf(term.normalized, matchIndex + term.normalized.length);
-      }
-    }
-
-    onProgress({ currentUrl: pdfUrl, loadedPages: pageNumber, totalPages: pdf.numPages });
-    page.cleanup();
+function ListInput({
+  title,
+  placeholder,
+  emptyMessage,
+  items,
+  value,
+  onValueChange,
+  onAdd,
+  onRemove,
+}: ListInputProps) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onAdd();
   }
 
-  await pdf.destroy();
+  return (
+    <section className="panel list-panel">
+      <h2>{title}</h2>
+      <form className="add-form" onSubmit={handleSubmit}>
+        <input
+          type="text"
+          value={value}
+          onChange={(event) => onValueChange(event.target.value)}
+          placeholder={placeholder}
+        />
+        <button type="submit" disabled={value.trim() === ""}>
+          追加
+        </button>
+      </form>
 
-  return results;
+      {items.length === 0 ? <p className="empty-message">{emptyMessage}</p> : null}
+
+      <ul className="item-list">
+        {items.map((item, index) => (
+          <li key={`${item}-${index}`} className="list-item">
+            <span className="list-text">{item}</span>
+            <button type="button" className="remove-button" onClick={() => onRemove(index)}>
+              削除
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 export default function App() {
-  const [pdfUrlsInput, setPdfUrlsInput] = useState(createTextAreaValue(DEFAULT_PDF_URLS));
-  const [searchTermsInput, setSearchTermsInput] = useState(() =>
-    createTextAreaValue(loadSavedSearchTerms()),
+  const [pdfUrls, setPdfUrls] = useState(() =>
+    loadSavedList(PDF_URLS_STORAGE_KEY, DEFAULT_PDF_URLS),
   );
+  const [searchTerms, setSearchTerms] = useState(() =>
+    loadSavedList(SEARCH_TERMS_STORAGE_KEY, DEFAULT_SEARCH_TERMS),
+  );
+  const [pdfUrlInput, setPdfUrlInput] = useState("");
+  const [searchTermInput, setSearchTermInput] = useState("");
   const [results, setResults] = useState<PdfSearchResult[]>([]);
   const [status, setStatus] = useState<SearchStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [progress, setProgress] = useState<PdfSearchProgress | null>(null);
 
-  const pdfUrls = useMemo(() => parseList(pdfUrlsInput), [pdfUrlsInput]);
-  const searchTerms = useMemo(() => parseList(searchTermsInput), [searchTermsInput]);
+  const canSearch = useMemo(
+    () => pdfUrls.length > 0 && searchTerms.length > 0 && status !== "loading",
+    [pdfUrls.length, searchTerms.length, status],
+  );
+
+  useEffect(() => {
+    window.localStorage.setItem(PDF_URLS_STORAGE_KEY, JSON.stringify(pdfUrls));
+  }, [pdfUrls]);
 
   useEffect(() => {
     window.localStorage.setItem(SEARCH_TERMS_STORAGE_KEY, JSON.stringify(searchTerms));
   }, [searchTerms]);
 
-  const canSearch = pdfUrls.length > 0 && searchTerms.length > 0 && status !== "loading";
+  function addPdfUrl() {
+    const nextValue = pdfUrlInput.trim();
+
+    if (!nextValue || pdfUrls.includes(nextValue)) {
+      setPdfUrlInput("");
+      return;
+    }
+
+    setPdfUrls((currentItems) => [...currentItems, nextValue]);
+    setPdfUrlInput("");
+  }
+
+  function addSearchTerm() {
+    const nextValue = searchTermInput.trim();
+
+    if (!nextValue || searchTerms.includes(nextValue)) {
+      setSearchTermInput("");
+      return;
+    }
+
+    setSearchTerms((currentItems) => [...currentItems, nextValue]);
+    setSearchTermInput("");
+  }
 
   async function handleSearch() {
     if (!canSearch) {
@@ -148,19 +153,23 @@ export default function App() {
     setErrorMessage(null);
 
     try {
-      const collectedResults: PdfSearchResult[] = [];
+      const response = await fetch("/api/search", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ pdfUrls, searchTerms }),
+      });
+      const payload = (await response.json()) as PdfSearchResponse | ApiErrorResponse;
 
-      for (const pdfUrl of pdfUrls) {
-        const pdfResults = await searchPdf(pdfUrl, searchTerms, setProgress);
-        collectedResults.push(...pdfResults);
+      if (!payload.ok) {
+        throw new Error(payload.message);
       }
 
-      setResults(collectedResults);
+      setResults(payload.results);
       setStatus("done");
-      setProgress(null);
     } catch (error) {
       setStatus("error");
-      setProgress(null);
       setErrorMessage(error instanceof Error ? error.message : "PDFの検索に失敗しました。");
     }
   }
@@ -169,33 +178,39 @@ export default function App() {
     <main className="app-shell">
       <section className="hero-card">
         <p className="eyebrow">PDF Search</p>
-        <h1>PDF内の文字列をまとめて検索</h1>
+        <h1>PDF内の文字列をサーバー経由で検索</h1>
         <p className="description">
-          URLで指定した複数のPDFから、LocalStorageに保存される検索文字列の配列を使って一致箇所を抽出します。
+          ブラウザではPDF URLと検索語句だけを管理し、検索時はローカルサーバーがPDFを一時保存して本文検索します。
         </p>
       </section>
 
-      <section className="panel input-grid" aria-label="検索条件">
-        <label className="field">
-          <span>ターゲットPDF URL（1行に1つ）</span>
-          <textarea
-            value={pdfUrlsInput}
-            onChange={(event) => setPdfUrlsInput(event.target.value)}
-            placeholder="https://example.com/sample.pdf"
-            rows={7}
-          />
-        </label>
+      <div className="input-grid" aria-label="検索条件">
+        <ListInput
+          title="ターゲットPDF URL"
+          placeholder="https://example.com/sample.pdf"
+          emptyMessage="検索対象のPDF URLを追加してください。"
+          items={pdfUrls}
+          value={pdfUrlInput}
+          onValueChange={setPdfUrlInput}
+          onAdd={addPdfUrl}
+          onRemove={(index) =>
+            setPdfUrls((currentItems) => currentItems.filter((_, i) => i !== index))
+          }
+        />
 
-        <label className="field">
-          <span>検索する文字列（1行に1つ / LocalStorage保存）</span>
-          <textarea
-            value={searchTermsInput}
-            onChange={(event) => setSearchTermsInput(event.target.value)}
-            placeholder="検索語句"
-            rows={7}
-          />
-        </label>
-      </section>
+        <ListInput
+          title="検索する文字列"
+          placeholder="検索語句"
+          emptyMessage="検索する文字列を追加してください。"
+          items={searchTerms}
+          value={searchTermInput}
+          onValueChange={setSearchTermInput}
+          onAdd={addSearchTerm}
+          onRemove={(index) =>
+            setSearchTerms((currentItems) => currentItems.filter((_, i) => i !== index))
+          }
+        />
+      </div>
 
       <section className="toolbar" aria-label="検索アクション">
         <button type="button" disabled={!canSearch} onClick={handleSearch}>
@@ -207,13 +222,10 @@ export default function App() {
         </div>
       </section>
 
-      {progress ? (
+      {status === "loading" ? (
         <section className="panel progress" aria-live="polite">
-          <strong>検索中:</strong> {progress.currentUrl}
-          <progress value={progress.loadedPages} max={progress.totalPages} />
-          <span>
-            {progress.loadedPages} / {progress.totalPages} ページ
-          </span>
+          <strong>サーバーでPDFを取得・検索しています。</strong>
+          <span>PDFが未キャッシュの場合はダウンロードに時間がかかることがあります。</span>
         </section>
       ) : null}
 
@@ -232,7 +244,11 @@ export default function App() {
           {results.map((result) => (
             <li key={result.id} className="result-item">
               <div className="result-meta">
-                <a href={`${result.pdfUrl}#page=${result.pageNumber}`} target="_blank" rel="noreferrer">
+                <a
+                  href={`${result.pdfUrl}#page=${result.pageNumber}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   {new URL(result.pdfUrl).pathname.split("/").pop() || result.pdfUrl}
                 </a>
                 <span>page {result.pageNumber}</span>

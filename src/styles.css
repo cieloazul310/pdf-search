@@ -19,7 +19,7 @@ body {
 }
 
 button,
-textarea {
+input {
   font: inherit;
 }
 
@@ -109,21 +109,72 @@ button:disabled {
   font-weight: 700;
 }
 
-textarea {
+input {
   width: 100%;
-  resize: vertical;
+  min-width: 0;
   border: 1px solid #cbd5e1;
-  border-radius: 16px;
+  border-radius: 999px;
   padding: 14px 16px;
   color: #0f172a;
   background: #ffffff;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 0.95rem;
 }
 
-textarea:focus {
+input:focus {
   outline: 3px solid rgb(37 99 235 / 18%);
   border-color: #2563eb;
+}
+
+.list-panel h2 {
+  margin: 0 0 16px;
+  font-size: 1.2rem;
+}
+
+.add-form {
+  display: flex;
+  gap: 10px;
+}
+
+.add-form button {
+  flex: 0 0 auto;
+}
+
+.empty-message {
+  margin: 16px 0 0;
+  color: #64748b;
+}
+
+.item-list {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.list-text {
+  overflow-wrap: anywhere;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.remove-button {
+  flex: 0 0 auto;
+  padding: 0.5rem 0.85rem;
+  color: #991b1b;
+  background: #fee2e2;
+  box-shadow: none;
 }
 
 .toolbar {
@@ -229,6 +280,7 @@ mark {
     grid-template-columns: 1fr;
   }
 
+  .add-form,
   .toolbar,
   .summary {
     align-items: stretch;
