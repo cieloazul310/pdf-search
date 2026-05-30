@@ -139,6 +139,25 @@ input:focus {
   flex: 0 0 auto;
 }
 
+.upload-field {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  color: #475569;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.upload-field input {
+  border-style: dashed;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.import-error {
+  margin: 12px 0 0;
+  color: #991b1b;
+  font-weight: 700;
 .upload-row {
   display: flex;
   align-items: center;
