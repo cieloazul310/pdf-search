@@ -87,7 +87,11 @@ async function searchCachedPdf(
   searchTerms: NormalizedTerm[],
 ): Promise<PdfSearchResult[]> {
   const pdfBytes = new Uint8Array(await readFile(pdfPath));
-  const loadingTask = pdfjs.getDocument({ data: pdfBytes });
+  const loadingTask = pdfjs.getDocument({
+    data: pdfBytes,
+    cMapUrl: './node_modules/pdfjs-dist/cmaps/',
+    cMapPacked: true,
+  });
   const pdf = await loadingTask.promise;
   const results: PdfSearchResult[] = [];
 
