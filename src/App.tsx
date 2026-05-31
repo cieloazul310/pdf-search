@@ -1,21 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { ChangeEvent, FormEvent } from 'react';
-import type {
-  ApiErrorResponse,
-  PdfSearchResponse,
-  PdfSearchResult,
-} from '../server/types';
+import type { ChangeEvent, FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ApiErrorResponse, PdfSearchResponse, PdfSearchResult } from "../server/types";
 
-const PDF_URLS_STORAGE_KEY = 'pdf-search:pdf-urls';
-const SEARCH_TERMS_STORAGE_KEY = 'pdf-search:terms';
+const PDF_URLS_STORAGE_KEY = "pdf-search:pdf-urls";
+const SEARCH_TERMS_STORAGE_KEY = "pdf-search:terms";
 const DEFAULT_PDF_URLS = [
-  'https://www.kanpo.go.jp/20260519/20260519g00110/pdf/20260519g00110full00010096.pdf',
+  "https://www.kanpo.go.jp/20260519/20260519g00110/pdf/20260519g00110full00010096.pdf",
 ];
-const DEFAULT_SEARCH_TERMS = ['浦和'];
-const IMPORT_FILE_ACCEPT = '.txt,.json,.yml,.yaml,application/json,text/plain';
+const DEFAULT_SEARCH_TERMS = ["浦和"];
+const IMPORT_FILE_ACCEPT = ".txt,.json,.yml,.yaml,application/json,text/plain";
 
-type SearchStatus = 'idle' | 'loading' | 'done' | 'error';
-type ImportTarget = 'pdfUrls' | 'searchTerms';
+type SearchStatus = "idle" | "loading" | "done" | "error";
+type ImportTarget = "pdfUrls" | "searchTerms";
 
 type ImportPreview = {
   target: ImportTarget;
@@ -54,13 +50,12 @@ function loadSavedList(storageKey: string, fallback: string[]): string[] {
 
     if (Array.isArray(parsed)) {
       return parsed.filter(
-        (item): item is string =>
-          typeof item === 'string' && item.trim() !== '',
+        (item): item is string => typeof item === "string" && item.trim() !== "",
       );
     }
   } catch {
     return rawValue
-      .split('\n')
+      .split("\n")
       .map((item) => item.trim())
       .filter(Boolean);
   }
@@ -93,14 +88,14 @@ function parseJson(content: string): ParsedImportFile {
   const parsed = JSON.parse(content) as unknown;
 
   if (!Array.isArray(parsed)) {
-    throw new Error('JSONファイルは文字列配列で記載してください。');
+    throw new Error("JSONファイルは文字列配列で記載してください。");
   }
 
   const items: string[] = [];
   const invalidItems: string[] = [];
 
   parsed.forEach((item, index) => {
-    if (typeof item === 'string' && item.trim() !== '') {
+    if (typeof item === "string" && item.trim() !== "") {
       items.push(item.trim());
       return;
     }
@@ -118,11 +113,11 @@ function parseYaml(content: string): ParsedImportFile {
   content.split(/\r?\n/).forEach((line, index) => {
     const trimmedLine = line.trim();
 
-    if (!trimmedLine || trimmedLine.startsWith('#')) {
+    if (!trimmedLine || trimmedLine.startsWith("#")) {
       return;
     }
 
-    if (!trimmedLine.startsWith('-')) {
+    if (!trimmedLine.startsWith("-")) {
       invalidItems.push(`${index + 1}行目: ${trimmedLine}`);
       return;
     }
@@ -141,25 +136,25 @@ function parseYaml(content: string): ParsedImportFile {
 }
 
 function parseImportFile(fileName: string, content: string): ParsedImportFile {
-  const extension = fileName.toLocaleLowerCase().split('.').pop();
+  const extension = fileName.toLocaleLowerCase().split(".").pop();
 
   switch (extension) {
-    case 'txt':
+    case "txt":
       return parsePlainText(content);
-    case 'json':
+    case "json":
       return parseJson(content);
-    case 'yml':
-    case 'yaml':
+    case "yml":
+    case "yaml":
       return parseYaml(content);
     default:
-      throw new Error('対応ファイルは .txt, .json, .yml, .yaml です。');
+      throw new Error("対応ファイルは .txt, .json, .yml, .yaml です。");
   }
 }
 
 function validatePdfUrl(value: string): boolean {
   try {
     const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:';
+    return url.protocol === "http:" || url.protocol === "https:";
   } catch {
     return false;
   }
@@ -187,7 +182,7 @@ function ListInput({
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    event.target.value = '';
+    event.target.value = "";
 
     if (file) {
       onFileSelect(file);
@@ -204,33 +199,23 @@ function ListInput({
           onChange={(event) => onValueChange(event.target.value)}
           placeholder={placeholder}
         />
-        <button type="submit" disabled={value.trim() === ''}>
+        <button type="submit" disabled={value.trim() === ""}>
           追加
         </button>
       </form>
 
       <label className="file-upload-button">
         ファイルから読み込み
-        <input
-          type="file"
-          accept={IMPORT_FILE_ACCEPT}
-          onChange={handleFileChange}
-        />
+        <input type="file" accept={IMPORT_FILE_ACCEPT} onChange={handleFileChange} />
       </label>
 
-      {items.length === 0 ? (
-        <p className="empty-message">{emptyMessage}</p>
-      ) : null}
+      {items.length === 0 ? <p className="empty-message">{emptyMessage}</p> : null}
 
       <ul className="item-list">
         {items.map((item, index) => (
           <li key={`${item}-${index}`} className="list-item">
             <span className="list-text">{item}</span>
-            <button
-              type="button"
-              className="remove-button"
-              onClick={() => onRemove(index)}
-            >
+            <button type="button" className="remove-button" onClick={() => onRemove(index)}>
               削除
             </button>
           </li>
@@ -247,20 +232,16 @@ export default function App() {
   const [searchTerms, setSearchTerms] = useState(() =>
     loadSavedList(SEARCH_TERMS_STORAGE_KEY, DEFAULT_SEARCH_TERMS),
   );
-  const [pdfUrlInput, setPdfUrlInput] = useState('');
-  const [searchTermInput, setSearchTermInput] = useState('');
+  const [pdfUrlInput, setPdfUrlInput] = useState("");
+  const [searchTermInput, setSearchTermInput] = useState("");
   const [results, setResults] = useState<PdfSearchResult[]>([]);
-  const [status, setStatus] = useState<SearchStatus>('idle');
+  const [status, setStatus] = useState<SearchStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [importErrorMessage, setImportErrorMessage] = useState<string | null>(
-    null,
-  );
-  const [importPreview, setImportPreview] = useState<ImportPreview | null>(
-    null,
-  );
+  const [importErrorMessage, setImportErrorMessage] = useState<string | null>(null);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
 
   const canSearch = useMemo(
-    () => pdfUrls.length > 0 && searchTerms.length > 0 && status !== 'loading',
+    () => pdfUrls.length > 0 && searchTerms.length > 0 && status !== "loading",
     [pdfUrls.length, searchTerms.length, status],
   );
 
@@ -269,10 +250,7 @@ export default function App() {
   }, [pdfUrls]);
 
   useEffect(() => {
-    window.localStorage.setItem(
-      SEARCH_TERMS_STORAGE_KEY,
-      JSON.stringify(searchTerms),
-    );
+    window.localStorage.setItem(SEARCH_TERMS_STORAGE_KEY, JSON.stringify(searchTerms));
   }, [searchTerms]);
 
   function addPdfUrl() {
@@ -283,43 +261,39 @@ export default function App() {
     }
 
     if (!validatePdfUrl(nextValue)) {
-      setImportErrorMessage('PDF URLは http(s) のURL形式で入力してください。');
+      setImportErrorMessage("PDF URLは http(s) のURL形式で入力してください。");
       return;
     }
 
     if (pdfUrls.includes(nextValue)) {
-      setPdfUrlInput('');
+      setPdfUrlInput("");
       return;
     }
 
     setPdfUrls((currentItems) => [...currentItems, nextValue]);
-    setPdfUrlInput('');
+    setPdfUrlInput("");
   }
 
   function addSearchTerm() {
     const nextValue = searchTermInput.trim();
 
     if (!nextValue || searchTerms.includes(nextValue)) {
-      setSearchTermInput('');
+      setSearchTermInput("");
       return;
     }
 
     setSearchTerms((currentItems) => [...currentItems, nextValue]);
-    setSearchTermInput('');
+    setSearchTermInput("");
   }
 
-  async function handleImportFile(
-    target: ImportTarget,
-    title: string,
-    file: File,
-  ) {
+  async function handleImportFile(target: ImportTarget, title: string, file: File) {
     setImportErrorMessage(null);
 
     try {
       const parsed = parseImportFile(file.name, await file.text());
       const invalidItems = [...parsed.invalidItems];
       const validItems = dedupeItems(parsed.items).filter((item) => {
-        if (target !== 'pdfUrls' || validatePdfUrl(item)) {
+        if (target !== "pdfUrls" || validatePdfUrl(item)) {
           return true;
         }
 
@@ -337,9 +311,7 @@ export default function App() {
     } catch (error) {
       setImportPreview(null);
       setImportErrorMessage(
-        error instanceof Error
-          ? error.message
-          : 'ファイルの読み込みに失敗しました。',
+        error instanceof Error ? error.message : "ファイルの読み込みに失敗しました。",
       );
     }
   }
@@ -349,14 +321,10 @@ export default function App() {
       return;
     }
 
-    if (importPreview.target === 'pdfUrls') {
-      setPdfUrls((currentItems) =>
-        dedupeItems([...currentItems, ...importPreview.validItems]),
-      );
+    if (importPreview.target === "pdfUrls") {
+      setPdfUrls((currentItems) => dedupeItems([...currentItems, ...importPreview.validItems]));
     } else {
-      setSearchTerms((currentItems) =>
-        dedupeItems([...currentItems, ...importPreview.validItems]),
-      );
+      setSearchTerms((currentItems) => dedupeItems([...currentItems, ...importPreview.validItems]));
     }
 
     setImportPreview(null);
@@ -367,33 +335,29 @@ export default function App() {
       return;
     }
 
-    setStatus('loading');
+    setStatus("loading");
     setResults([]);
     setErrorMessage(null);
 
     try {
-      const response = await fetch('/api/search', {
-        method: 'POST',
+      const response = await fetch("/api/search", {
+        method: "POST",
         headers: {
-          'content-type': 'application/json',
+          "content-type": "application/json",
         },
         body: JSON.stringify({ pdfUrls, searchTerms }),
       });
-      const payload = (await response.json()) as
-        | PdfSearchResponse
-        | ApiErrorResponse;
+      const payload = (await response.json()) as PdfSearchResponse | ApiErrorResponse;
 
       if (!payload.ok) {
         throw new Error(payload.message);
       }
 
       setResults(payload.results);
-      setStatus('done');
+      setStatus("done");
     } catch (error) {
-      setStatus('error');
-      setErrorMessage(
-        error instanceof Error ? error.message : 'PDFの検索に失敗しました。',
-      );
+      setStatus("error");
+      setErrorMessage(error instanceof Error ? error.message : "PDFの検索に失敗しました。");
     }
   }
 
@@ -408,7 +372,7 @@ export default function App() {
         </p>
       </section>
 
-      <div className="input-grid" aria-label="検索条件">
+      <div className="input-grid">
         <ListInput
           title="ターゲットPDF URL"
           placeholder="https://example.com/sample.pdf"
@@ -418,13 +382,9 @@ export default function App() {
           onValueChange={setPdfUrlInput}
           onAdd={addPdfUrl}
           onRemove={(index) =>
-            setPdfUrls((currentItems) =>
-              currentItems.filter((_, i) => i !== index),
-            )
+            setPdfUrls((currentItems) => currentItems.filter((_, i) => i !== index))
           }
-          onFileSelect={(file) =>
-            handleImportFile('pdfUrls', 'ターゲットPDF URL', file)
-          }
+          onFileSelect={(file) => handleImportFile("pdfUrls", "ターゲットPDF URL", file)}
         />
 
         <ListInput
@@ -436,19 +396,13 @@ export default function App() {
           onValueChange={setSearchTermInput}
           onAdd={addSearchTerm}
           onRemove={(index) =>
-            setSearchTerms((currentItems) =>
-              currentItems.filter((_, i) => i !== index),
-            )
+            setSearchTerms((currentItems) => currentItems.filter((_, i) => i !== index))
           }
-          onFileSelect={(file) =>
-            handleImportFile('searchTerms', '検索する文字列', file)
-          }
+          onFileSelect={(file) => handleImportFile("searchTerms", "検索する文字列", file)}
         />
       </div>
 
-      {importErrorMessage ? (
-        <section className="panel error">{importErrorMessage}</section>
-      ) : null}
+      {importErrorMessage ? <section className="panel error">{importErrorMessage}</section> : null}
 
       {importPreview ? (
         <section className="panel import-preview" aria-live="polite">
@@ -457,8 +411,7 @@ export default function App() {
               <p className="eyebrow dark-eyebrow">File Preview</p>
               <h2>{importPreview.title}の読み込みプレビュー</h2>
               <p>
-                {importPreview.fileName} から {importPreview.validItems.length}{' '}
-                件を追加できます。
+                {importPreview.fileName} から {importPreview.validItems.length} 件を追加できます。
               </p>
             </div>
             <div className="preview-actions">
@@ -504,7 +457,7 @@ export default function App() {
 
       <section className="toolbar" aria-label="検索アクション">
         <button type="button" disabled={!canSearch} onClick={handleSearch}>
-          {status === 'loading' ? '検索中…' : 'PDFを検索'}
+          {status === "loading" ? "検索中…" : "PDFを検索"}
         </button>
         <div className="summary">
           <span>PDF: {pdfUrls.length}件</span>
@@ -512,18 +465,14 @@ export default function App() {
         </div>
       </section>
 
-      {status === 'loading' ? (
+      {status === "loading" ? (
         <section className="panel progress" aria-live="polite">
           <strong>サーバーでPDFを取得・検索しています。</strong>
-          <span>
-            PDFが未キャッシュの場合はダウンロードに時間がかかることがあります。
-          </span>
+          <span>PDFが未キャッシュの場合はダウンロードに時間がかかることがあります。</span>
         </section>
       ) : null}
 
-      {errorMessage ? (
-        <section className="panel error">{errorMessage}</section>
-      ) : null}
+      {errorMessage ? <section className="panel error">{errorMessage}</section> : null}
 
       <section className="panel results" aria-live="polite">
         <div className="results-header">
@@ -531,10 +480,8 @@ export default function App() {
           <span>{results.length}件</span>
         </div>
 
-        {status === 'idle' ? (
-          <p>検索条件を入力して「PDFを検索」を押してください。</p>
-        ) : null}
-        {status === 'done' && results.length === 0 ? (
+        {status === "idle" ? <p>検索条件を入力して「PDFを検索」を押してください。</p> : null}
+        {status === "done" && results.length === 0 ? (
           <p>一致する文字列はありませんでした。</p>
         ) : null}
 
@@ -547,8 +494,7 @@ export default function App() {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  {new URL(result.pdfUrl).pathname.split('/').pop() ||
-                    result.pdfUrl}
+                  {new URL(result.pdfUrl).pathname.split("/").pop() || result.pdfUrl}
                 </a>
                 <span>page {result.pageNumber}</span>
                 <mark>{result.term}</mark>

@@ -15,9 +15,9 @@
     "format": "biome format --write ."
   },
   "dependencies": {
+    "pdfjs-dist": "latest",
     "react": "latest",
-    "react-dom": "latest",
-    "pdfjs-dist": "latest"
+    "react-dom": "latest"
   },
   "devDependencies": {
     "@biomejs/biome": "latest",
@@ -26,6 +26,7 @@
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "latest",
     "concurrently": "latest",
+    "lefthook": "latest",
     "tsx": "latest",
     "typescript": "latest",
     "vite": "latest",

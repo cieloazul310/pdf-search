@@ -1,12 +1,12 @@
-import { createHash } from 'node:crypto';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { PdfSearchResult } from './types';
+import { createHash } from "node:crypto";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
+import type { PdfSearchResult } from "./types";
 
-const CACHE_DIR = path.join(tmpdir(), 'pdf-search-cache');
-const USER_AGENT = 'pdf-search-local-server/0.1';
+const CACHE_DIR = path.join(tmpdir(), "pdf-search-cache");
+const USER_AGENT = "pdf-search-local-server/0.1";
 
 type NormalizedTerm = {
   label: string;
@@ -18,7 +18,7 @@ function normalizeList(items: string[]): string[] {
 }
 
 function getCachePath(pdfUrl: string): string {
-  const hash = createHash('sha256').update(pdfUrl).digest('hex');
+  const hash = createHash("sha256").update(pdfUrl).digest("hex");
   return path.join(CACHE_DIR, `${hash}.pdf`);
 }
 
@@ -42,7 +42,7 @@ export async function downloadPdfToCache(pdfUrl: string): Promise<string> {
 
   const response = await fetch(pdfUrl, {
     headers: {
-      'user-agent': USER_AGENT,
+      "user-agent": USER_AGENT,
     },
   });
 
@@ -50,11 +50,11 @@ export async function downloadPdfToCache(pdfUrl: string): Promise<string> {
     throw new Error(`PDFの取得に失敗しました: ${pdfUrl} (${response.status})`);
   }
 
-  const contentType = response.headers.get('content-type') ?? '';
+  const contentType = response.headers.get("content-type") ?? "";
 
   if (
-    !contentType.toLocaleLowerCase().includes('pdf') &&
-    !pdfUrl.toLocaleLowerCase().endsWith('.pdf')
+    !contentType.toLocaleLowerCase().includes("pdf") &&
+    !pdfUrl.toLocaleLowerCase().endsWith(".pdf")
   ) {
     throw new Error(`PDFではないレスポンスを受信しました: ${pdfUrl}`);
   }
@@ -65,26 +65,20 @@ export async function downloadPdfToCache(pdfUrl: string): Promise<string> {
   return cachePath;
 }
 
-function buildSnippet(
-  text: string,
-  matchIndex: number,
-  termLength: number,
-): string {
+function buildSnippet(text: string, matchIndex: number, termLength: number): string {
   const maxContextLength = 60;
   const start = Math.max(0, matchIndex - maxContextLength);
   const end = Math.min(text.length, matchIndex + termLength + maxContextLength);
-  const prefix = start > 0 ? '…' : '';
-  const suffix = end < text.length ? '…' : '';
+  const prefix = start > 0 ? "…" : "";
+  const suffix = end < text.length ? "…" : "";
 
-  return `${prefix}${text.slice(start, end).replace(/\s+/g, ' ').trim()}${suffix}`;
+  return `${prefix}${text.slice(start, end).replace(/\s+/g, " ").trim()}${suffix}`;
 }
 
 async function extractPageText(page: pdfjs.PDFPageProxy): Promise<string> {
   const textContent = await page.getTextContent();
 
-  return textContent.items
-    .map((item) => ('str' in item ? item.str : ''))
-    .join(' ');
+  return textContent.items.map((item) => ("str" in item ? item.str : "")).join(" ");
 }
 
 async function searchCachedPdf(
@@ -95,7 +89,7 @@ async function searchCachedPdf(
   const pdfBytes = new Uint8Array(await readFile(pdfPath));
   const loadingTask = pdfjs.getDocument({
     data: pdfBytes,
-    cMapUrl: './node_modules/pdfjs-dist/cmaps/',
+    cMapUrl: "./node_modules/pdfjs-dist/cmaps/",
     cMapPacked: true,
   });
   const pdf = await loadingTask.promise;
@@ -144,11 +138,11 @@ export async function searchPdfUrls(
   }));
 
   if (pdfUrls.length === 0) {
-    throw new Error('PDF URLを1件以上入力してください。');
+    throw new Error("PDF URLを1件以上入力してください。");
   }
 
   if (searchTerms.length === 0) {
-    throw new Error('検索文字列を1件以上入力してください。');
+    throw new Error("検索文字列を1件以上入力してください。");
   }
 
   const results: PdfSearchResult[] = [];
