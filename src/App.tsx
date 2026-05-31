@@ -1,5 +1,4 @@
-import type { ChangeEvent, FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, type SubmitEvent, useEffect, useMemo, useState } from "react";
 import type { ApiErrorResponse, PdfSearchResponse, PdfSearchResult } from "../server/types";
 
 const PDF_URLS_STORAGE_KEY = "pdf-search:pdf-urls";
@@ -175,7 +174,7 @@ function ListInput({
   onRemove,
   onFileSelect,
 }: ListInputProps) {
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     onAdd();
   }
