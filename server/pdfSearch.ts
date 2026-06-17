@@ -17,6 +17,14 @@ function normalizeList(items: string[]): string[] {
   return [...new Set(items.map((item) => item.trim()).filter(Boolean))];
 }
 
+export function normalizeSearchText(text: string): string {
+  return text
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (character) =>
+      String.fromCharCode(character.charCodeAt(0) - 0xfee0),
+    )
+    .toLocaleLowerCase();
+}
+
 function getCachePath(pdfUrl: string): string {
   const hash = createHash("sha256").update(pdfUrl).digest("hex");
   return path.join(CACHE_DIR, `${hash}.pdf`);
@@ -98,7 +106,7 @@ async function searchCachedPdf(
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
     const pageText = await extractPageText(page);
-    const normalizedPageText = pageText.toLocaleLowerCase();
+    const normalizedPageText = normalizeSearchText(pageText);
 
     for (const term of searchTerms) {
       let matchIndex = normalizedPageText.indexOf(term.normalized);
@@ -134,7 +142,7 @@ export async function searchPdfUrls(
   const pdfUrls = normalizeList(pdfUrlsInput);
   const searchTerms = normalizeList(searchTermsInput).map((term) => ({
     label: term,
-    normalized: term.toLocaleLowerCase(),
+    normalized: normalizeSearchText(term),
   }));
 
   if (pdfUrls.length === 0) {
